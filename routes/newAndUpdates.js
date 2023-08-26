@@ -1,10 +1,12 @@
 // routes/newAndUpdates.js
 const express = require('express');
+const { getNewsAndUpdates,publishNews } = require('../controllers/newsController');
 const router = express.Router();
 
-const { publishNews } = require('../controllers/publishNews.controller');
+const authMiddleware = require('../middlewares/authMiddleware');
 
 // Define a route to publish news
-router.post('/publish', publishNews);
+router.post('/publish', authMiddleware, publishNews);
+router.get('/news-updates', getNewsAndUpdates);
 
 module.exports = router;

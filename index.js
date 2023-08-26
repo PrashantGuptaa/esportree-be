@@ -12,6 +12,7 @@ const mongoUrl = process.env.MONGO_CONNECTION;
 
 // Middleware
 app.use(cors());
+app.use(express.json());
 
 // Routes
 app.get('/', (req, res) => {
