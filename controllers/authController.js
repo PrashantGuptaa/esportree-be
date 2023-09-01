@@ -8,11 +8,11 @@ const sendResponse = require("../utils/response");
 const signUp = async (req, res) => {
   try {
     const { userName, email, password, name } = req.body;
-        // Check if the userName, email, and password are provided
-        if (!userName || !email || !password) {
-          sendResponse(res, 400, 'Username, email, or password is missing');
-          return;
-        }
+    // Check if the userName, email, and password are provided
+    if (!userName || !email || !password) {
+      sendResponse(res, 400, "Username, email, or password is missing");
+      return;
+    }
     // Check if the userName or email already exist
     const existingUser = await User.findOne({ $or: [{ userName }, { email }] });
 
@@ -34,12 +34,11 @@ const signUp = async (req, res) => {
     await newUser.save();
     // Generate and sign a JWT token for the newly registered user
     const token = jwt.sign(
-      { userId: newUser._id },
+      { userId: newUser._id, email, active: false },
       process.env.AUTH_PRIVATE_KEY,
       {
         expiresIn: "24h",
-        algorithm: 'HS256', // Use the desired algorithm
-
+        algorithm: "HS256", // Use the desired algorithm
       }
     );
 
@@ -69,10 +68,14 @@ const login = async (req, res) => {
     }
 
     // Generate and sign a JWT token for the user
-    const token = jwt.sign({ userId: user._id }, process.env.AUTH_PRIVATE_KEY, {
-      expiresIn: "24h", // Token expiration time
-      algorithm: 'HS256', // Use the desired algorithm
-    });
+    const token = jwt.sign(
+      { userId: user._id, email: user.email, active: user.active },
+      process.env.AUTH_PRIVATE_KEY,
+      {
+        expiresIn: "24h", // Token expiration time
+        algorithm: "HS256", // Use the desired algorithm
+      }
+    );
 
     sendResponse(res, 200, "Login successful", { token });
   } catch (error) {

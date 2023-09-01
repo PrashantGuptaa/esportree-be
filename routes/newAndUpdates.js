@@ -3,7 +3,7 @@ const express = require('express');
 const { getNewsAndUpdates,publishNews } = require('../controllers/newsController');
 const router = express.Router();
 
-const authMiddleware = require('../middlewares/authMiddleware');
+const {authMiddleware} = require('../middlewares/authMiddleware');
 
 // Define a route to publish news
 router.post('/publish', authMiddleware, publishNews);
