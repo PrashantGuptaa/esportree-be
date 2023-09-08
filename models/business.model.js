@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-var businessSchema = new mongoose.Schema({
+const businessSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to the User model
   // business_image_url: { type: String ,default: null},
   businessName: { type: String, require: true },
@@ -9,7 +9,7 @@ var businessSchema = new mongoose.Schema({
   businessSize: { type: String, required: true },
   businessHQLocation: { type: String, required: true },
   language: { type: String },
-  yearFounded: { type: Number },
+  yearFounded: { type: Number, required: true },
   businessType: { type: String, required: true },
   deleted: { type: Boolean, default: false },
 },
@@ -17,8 +17,6 @@ var businessSchema = new mongoose.Schema({
 );
 
 
-var businessSchema = mongoose.model('Business', businessSchema);
+const business = mongoose.model('Business', businessSchema);
 
-module.exports = { 
-    businessSchema: businessSchema 
-};
+module.exports = business;

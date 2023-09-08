@@ -1,6 +1,6 @@
 const bcrypt = require("bcrypt");
 const sendResponse = require("../utils/response");
-const { businessSchema } = require("../models/business.model");
+const business  = require("../models/business.model");
 // var aws = require("aws-sdk");
 // var multer = require("multer");
 // var multerS3 = require("multer-s3");
@@ -38,36 +38,12 @@ const { businessSchema } = require("../models/business.model");
 /*Register Business Profile*/
 exports.registerBusiness = async (req, res) => {
     try{
-        var businessName = req.body.businessName;
-        var otherName = req.body.otherName;
-        var businessWebsite = req.body.businessWebsite;
-        var businessSize = req.body.businessSize;
-        var businessHQLocation = req.body.businessHQLocation;
-        var language = req.body.language;
-        var yearFounded = req.body.yearFounded;
-        var businessType = req.body.businessType;
-        
-        if (!businessName || !otherName || !businessWebsite || !businessSize || !businessHQLocation || !language || !yearFounded || !businessType) {
-            sendResponse(res, 400, 'Missing required fields');
-            return;
-        }
-        
-        let isExists = await businessSchema.findOne({ businessName: req.body.businessName });
+        let isExists = await business.findOne({ businessName: req.body.businessName });
         if (isExists) throw { message: "You have already registered" };
         
-        let newBusiness = new businessSchema({
-            userId: req.userId,
-            businessName: businessName,
-            otherName: otherName,
-            businessWebsite: businessWebsite,
-            businessSize: businessSize,
-            businessHQLocation: businessHQLocation,
-            language: language,
-            yearFounded: yearFounded,
-            businessType: businessType
-        });
-        await newBusiness.save();
-        sendResponse(res, 201, "Registered successfully");
+        let newBusiness = await business.create({userId: req.userId, ...req.body});
+        return sendResponse(res, 201, {message: "Registered successfully", data: newBusiness});        
+
     }catch (error) {
       console.error("Error creating business:", error);
       sendResponse(res, 400, "Failed to register", null, [error.message]);
@@ -149,7 +125,13 @@ exports.registerBusiness = async (req, res) => {
 /** read business profiles  */
 exports.getBusinessProfiles = async (req, res) => {
     try {
-        const businesses = await businessSchema
+        let { offset, limit } = req.query;
+        offset = parseInt(offset);
+        limit = parseInt(limit);
+        offset = offset >= 0 ? offset : 0;
+        limit = limit >= 10 ? limit : 10;
+
+        const businesses = await business
         .aggregate([
             { $match: {deleted: false} },
             {
@@ -172,6 +154,10 @@ exports.getBusinessProfiles = async (req, res) => {
                     updatedAt : -1
                 }
             },
+            {$facet : {
+                businesses : [{$skip : offset}, {$limit : limit}],
+                totalCount : [{$count : 'count'}]
+            }}
         ]).exec(); 
         sendResponse(res, 200, "Business profiles fetched successfully", businesses);
     } catch (error) {
@@ -186,11 +172,11 @@ exports.getBusinessProfiles = async (req, res) => {
 exports.getBusinessByID = async (req, res) => {
     try {
         let _id = req.params;
-        let business = await businessSchema.findOne({ _id, deleted: false });
-        if (!business) {
+        let businesses = await business.findOne({ _id, deleted: false });
+        if (!businesses) {
             sendResponse(res, 404, "Business profile not found");
         } else {
-            sendResponse(res, 200, "Business profile fetched successfully", business);
+            sendResponse(res, 200, "Business profile fetched successfully", businesses);
         }
     }
     catch (error) {
@@ -205,10 +191,10 @@ exports.getBusinessByID = async (req, res) => {
 exports.updateBusiness = async(req, res)=>{
     try {
         let _id = req.params;
-        let isExists = await businessSchema.findOne({ _id , deleted: false});
+        let isExists = await business.findOne({ _id , deleted: false});
         if (!isExists) throw { message: "Business has not added yet" };
-        let business =  await businessSchema.updateOne({_id }, {$set : req.body}, { new: true } );
-        sendResponse(res, 200, "Event updated successfully", business);        
+        let businesses =  await business.updateOne({_id }, {$set : req.body}, { new: true } );
+        sendResponse(res, 200, "Event updated successfully", businesses);        
 
     } catch (error) {
         console.error("Error updating event:", error);
@@ -220,8 +206,8 @@ exports.updateBusiness = async(req, res)=>{
 exports.deleteBusiness = async (req, res) => {
     try {
         let _id = req.params;
-        let business = await businessSchema.findByIdAndUpdate( _id, { deleted: true }, { new: true } );
-        if (!business) {
+        let businesses = await business.findByIdAndUpdate( _id, { deleted: true }, { new: true } );
+        if (!businesses) {
             sendResponse(res, 404, "Event not found");
             return;
           }
