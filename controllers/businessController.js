@@ -194,11 +194,11 @@ exports.updateBusiness = async(req, res)=>{
         let isExists = await business.findOne({ _id , deleted: false});
         if (!isExists) throw { message: "Business has not added yet" };
         let businesses =  await business.updateOne({_id }, {$set : req.body}, { new: true } );
-        sendResponse(res, 200, "Event updated successfully", businesses);        
+        sendResponse(res, 200, "business updated successfully", businesses);        
 
     } catch (error) {
-        console.error("Error updating event:", error);
-        sendResponse(res, 500, "Failed to update event", null, [error.message]);
+        console.error("Error updating business:", error);
+        sendResponse(res, 500, "Failed to update business", null, [error.message]);
       }
 };
 
@@ -208,12 +208,12 @@ exports.deleteBusiness = async (req, res) => {
         let _id = req.params;
         let businesses = await business.findByIdAndUpdate( _id, { deleted: true }, { new: true } );
         if (!businesses) {
-            sendResponse(res, 404, "Event not found");
+            sendResponse(res, 404, "business not found");
             return;
           }
-          sendResponse(res, 200, "Event deleted successfully");
+          sendResponse(res, 200, "business deleted successfully");
         } catch (error) {
-          console.error("Error deleting event:", error);
-          sendResponse(res, 500, "Failed to delete event", null, [error.message]);
+          console.error("Error deleting business:", error);
+          sendResponse(res, 500, "Failed to delete business", null, [error.message]);
         }
 };
