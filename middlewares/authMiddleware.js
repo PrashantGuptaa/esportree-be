@@ -3,12 +3,14 @@ const { get } = require("lodash");
 
 // Middleware for Token Authorization
 const authMiddleware = (req, res, next) => {
+  //console.log('Hi')
   try {
     const token = req.headers?.authorization?.split(" ")?.[1] || null; // Authorization: 'Bearer TOKEN'
+    //console.log(req.headers)
     if (!token) {
       return res.status(401).json({ error: "Authorization token is missing" });
     }
-
+    //console.log(token)
     // Verify the JWT token
     const decoded = jwt.verify(token, process.env.AUTH_PRIVATE_KEY, {
       // to be replaced with public key
@@ -54,7 +56,7 @@ const authPlusActiveUserMiddleware = (req, res, next) => {
     //     return res.status(403).json({ error: activeUserError });
     //   }
 
-      next();
+    next();
     // });
   });
 };

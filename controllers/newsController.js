@@ -6,20 +6,29 @@ const sendResponse = require("../utils/response");
 /* Handle the publish route */
 exports.publishNews = async (req, res) => {
   try {
+    
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No files uploaded' });
+    }
+    //urls of uploaded file
+    const fileUrls = req.files.map((file) => file.location); // Array of S3 URLs
+    //console.log(fileUrls)
+    //res.status(200).json({ message: 'Files uploaded', urls: fileUrls });
+  
     const { category, ...newsData } = req.body;
-
-    const allowedCategories = ['Announcement', 'International', 'Local', 'Discussion', 'Pubg'];
+    console.log(req.body)
+    const allowedCategories = ['Announcement', 'International', 'Local'];
     if (!allowedCategories.includes(category)) {
       return sendResponse(res, 400, "Invalid category provided", null, ["Invalid category"]);
     }
 
-    let newsPublish = await News.create({ userId: req.userId, category, ...newsData });
-    return sendResponse(res, 201, {message: "Created successfully", data: newsPublish});        
+   let newsPublish = await News.create({ userId: req.userId, category,image_url:fileUrls , ...newsData });
+    return sendResponse(res, 201, {message: "Created successfully" , data: newsPublish });        
     
   } catch (error) {
     console.error("Error publishing news:", error);
     sendResponse(res, 400, "Failed to publish news", null, [error.message]);
-  }
+  } 
 };
 
 /* Handle fetching news and updates */

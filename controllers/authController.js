@@ -7,20 +7,22 @@ const sendResponse = require("../utils/response");
 // Handle user sign-up
 const signUp = async (req, res) => {
   try {
+   
     const { userName, email, password, name } = req.body;
+    
     // Check if the userName, email, and password are provided
     if (!userName || !email || !password) {
-      sendResponse(res, 400, "Username, email, or password is missing");
-      return;
+      return sendResponse(res, 400, "Username, email, or password is missing");
+      
     }
     // Check if the userName or email already exist
     const existingUser = await User.findOne({ $or: [{ userName }, { email }] });
-
+ 
     if (existingUser) {
-      sendResponse(res, 400, "Username or email already exists");
-      return;
+      return sendResponse(res, 400, "Username or email already exists");
+      
     }
-
+  
     // Hash the password before saving it to the database
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -41,11 +43,11 @@ const signUp = async (req, res) => {
         algorithm: "HS256", // Use the desired algorithm
       }
     );
-
-    sendResponse(res, 201, "User registered successfully", { token });
+    //console.log(token)
+   return sendResponse(res, 201, "Registration Done.Kindly verify your otp ", { token });
   } catch (error) {
     console.error("Error signing up:", error);
-    sendResponse(res, 400, "Failed to sign up", null, [error.message]);
+   return sendResponse(res, 400, "Failed to sign up", null, [error.message]);
   }
 };
 

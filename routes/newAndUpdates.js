@@ -2,11 +2,11 @@
 const express = require('express');
 const newscontroller = require('../controllers/newsController');
 const router = express.Router();
-
 const {authMiddleware} = require('../middlewares/authMiddleware');
+const uploadToS3 = require('../middlewares/uploadMiddleware');
 
 // Define a route to publish news
-router.post('/publish', authMiddleware, newscontroller.publishNews);
+router.post('/publish', authMiddleware,  uploadToS3('news'),newscontroller.publishNews);
 router.get('/newsUpdates', newscontroller.getNewsAndUpdates);
 router.get('/:_id', newscontroller.getNewsById);
 

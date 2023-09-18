@@ -7,16 +7,21 @@ require("dotenv").config(); // Load environment variables from .env
 const app = express();
 const logger = require("./services/logger");
 const requestIdMiddleware = require("./middlewares/requestMiddleware");
-
+const fileUpload = require('express-fileupload')
 const routes = require("./routes");
 
-const port = process.env.APP_PORT;
+const port = process.env.APP_PORT || 8000;
 const mongoUrl = process.env.MONGO_CONNECTION;
 
-// Middleware
+//Middleware
+app.use(fileUpload({
+  useTempFiles: true
+})) 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(requestIdMiddleware);
+
 
 // Routes
 app.get("/", (req, res) => {

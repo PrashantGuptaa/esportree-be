@@ -20,6 +20,7 @@ const sendVerficationEmailController = async (req, res) => {
   const { logger } = req;
   try {
     const email = get(req.user, ["email"], "");
+    console.log(email);
     const startTime = Date.now();
     logger.info(`Sending verfication code to email: ${email}`);
     const otp = generateVerificationCode();
@@ -52,16 +53,20 @@ const verifyOtpController = async (req, res) => {
   try {
     const otp = get(req.body, ["otp"], "");
     logger.info(`Verifying Otp`);
-    const userDetails = await User.findById(req.userId);
-    console.log("F-4", userDetails);
-    if (userDetails.otp !== otp || Date.now() - userDetails.otpValidity > 0) {
+
+    let userDetails = await User.findById(req.userId);
+    //console.log("F-4", userDetails);
+    if (
+      userDetails.otp !== Number(otp) ||
+      Date.now() - userDetails.otpValidity > 0
+    ) {
       sendResponse(res, 403, "Invalid OTP", null);
       return;
     }
-
-    userDetails.active(true);
+    //console.log('Hi')
+    userDetails.active=true;
     await userDetails.save();
-
+    
     logger.info(`Successfully verified email and enabled user: ${req.userId}`);
     sendResponse(res, 200, "Successfully verified otp", null);
   } catch (e) {
@@ -74,6 +79,7 @@ const verifyOtpController = async (req, res) => {
 
 module.exports = {
   sendVerficationEmailController,
+  verifyOtpController,
 };
 
 // hilznqhclxdoilqx
