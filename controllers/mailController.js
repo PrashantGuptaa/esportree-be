@@ -50,28 +50,32 @@ const sendVerficationEmailController = async (req, res) => {
 
 const verifyOtpController = async (req, res) => {
   const { logger } = req;
+
   try {
     const otp = get(req.body, ["otp"], "");
     logger.info(`Verifying Otp`);
-
+    
     let userDetails = await User.findById(req.userId);
     //console.log("F-4", userDetails);
+  
     if (
       userDetails.otp !== Number(otp) ||
       Date.now() - userDetails.otpValidity > 0
     ) {
-      sendResponse(res, 403, "Invalid OTP", null);
-      return;
+      
+      return sendResponse(res, 403, "Invalid OTP", null);
+      
     }
+   
     //console.log('Hi')
     userDetails.active=true;
     await userDetails.save();
     
     logger.info(`Successfully verified email and enabled user: ${req.userId}`);
-    sendResponse(res, 200, "Successfully verified otp", null);
+    return sendResponse(res, 200, "Successfully verified otp", null);
   } catch (e) {
     logger.error(`Error while sending email: ${e.message}`);
-    sendResponse(res, 500, "Error while sending email for verification", null, [
+    return sendResponse(res, 500, "Error while sending email for verification", null, [
       e.message,
     ]);
   }
