@@ -1,10 +1,12 @@
 // routes/routes.js
 const express = require("express");
-const { signUp, login } = require("../controllers/authController");
-const {authMiddleware} = require('../middlewares/authMiddleware');
 const {
-  sendVerficationEmailController,
-} = require("../controllers/mailController");
+  signUp,
+  login,
+  sendOtpToUser,
+  verifyOtpFromUser,
+} = require("../controllers/authController");
+
 const authRoutes = express.Router();
 
 // User registration
@@ -14,7 +16,7 @@ authRoutes.post("/signup", signUp);
 authRoutes.post("/login", login);
 
 // mail routes
-authRoutes.post("/send-verification-code", authMiddleware, sendVerficationEmailController);
-authRoutes.post("/verify-code", authMiddleware, sendVerficationEmailController);
+authRoutes.post("/send-verification-code", verifyOtpFromUser);
+authRoutes.post("/verify-code", sendOtpToUser);
 
 module.exports = authRoutes;
