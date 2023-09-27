@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 const sendResponse = require("../utils/response");
 const { business, BusinessCatalogue } = require("../models/business.model"); 
-const sendEmail = require('../services/mailer');
+const sendEmailService = require('../services/emailService');
 const { generateVerificationToken } = require('../services/token');
 const moment = require('moment');
 
@@ -28,7 +28,7 @@ exports.registerBusiness = async (req, res) => {
   if (existingUnverifiedBusiness) {
 
     const verificationLink = `https://esportee.com/verify/${existingUnverifiedBusiness.verificationToken}`;
-    await sendEmail(
+    await sendEmailService(
       email,
       'Email Verification',
       `Click the following link to verify your business: ${verificationLink}`
@@ -59,7 +59,7 @@ exports.registerBusiness = async (req, res) => {
 
     // Send an email verification link
     const verificationLink = `https://esportee.com/verify/${newBusiness.verificationToken}`;
-    await sendEmail(email, 'Email Verification', `Click the following link to verify your business: ${verificationLink}`);
+    await sendEmailService(email, 'Email Verification', `Click the following link to verify your business: ${verificationLink}`);
     
     return sendResponse(res, 201, 'Business registered successfully. Please check your email for verification.', newBusiness );        
   } catch (error) {
@@ -121,7 +121,7 @@ exports.regenerateVerificationToken = async (req, res) => {
 
     // Send the new verification link with the new token
     const verificationLink = `https://esportee.com/verify/${newToken}`;
-    await sendEmail(email, 'Email Verification', `Click the following link to verify your business: ${verificationLink}`);
+    await sendEmailService(email, 'Email Verification', `Click the following link to verify your business: ${verificationLink}`);
 
     return sendResponse(res, 200, 'New verification link has been sent to your email.');
   } catch (error) {
