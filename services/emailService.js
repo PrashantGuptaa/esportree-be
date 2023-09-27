@@ -1,7 +1,7 @@
 // mailer.js
 const nodemailer = require("nodemailer");
 
-async function sendEmail(recipientEmail, subject, text) {
+async function sendEmailService(recipientEmail, subject, html) {
   const transporter = nodemailer.createTransport({
     service: process.env.EMAIL_PROVIDER,
     auth: {
@@ -14,10 +14,10 @@ async function sendEmail(recipientEmail, subject, text) {
     from: process.env.EMAIL,
     to: recipientEmail,
     subject,
-    text,
+    html,
   };
 
   await transporter.sendMail(mailOptions);
 }
 
-module.exports = sendEmail;
+module.exports = { sendEmailService };

@@ -3,31 +3,36 @@ const { get } = require("lodash");
 
 // Middleware for Token Authorization
 const authMiddleware = (req, res, next) => {
-  try {
-    const token = req.headers?.authorization?.split(" ")?.[1] || null; // Authorization: 'Bearer TOKEN'
-    if (!token) {
-      return res.status(401).json({ error: "Authorization token is missing" });
+  // Get the token from the request headers
+  const token = req.headers.authorization;
+
+  if (!token) {
+    return sendResponse(res, 401, "Authentication failed. Token is missing.");
+  }
+
+  // Verify the token
+  jwt.verify(token, process.env.AUTH_TOKEN, async (err, user) => {
+    if (err) {
+      return sendResponse(res, 401, "Authentication failed. Invalid token.");
     }
 
-    // Verify the JWT token
-    const decoded = jwt.verify(token, process.env.AUTH_PRIVATE_KEY, {
-      // to be replaced with public key
-      algorithms: ["HS256"],
-    });
+    if (!user || !user.active) {
+      return sendResponse(
+        res,
+        401,
+        "Authentication failed. Account not activated."
+      );
+    }
 
-    // Attach the decoded user ID to the request object
-    req.userId = decoded.userId;
-    req.user = {
-      userId: decoded.userId,
-      email: decoded.email,
-      active: decoded.active,
-    };
+    // Attach the user's decoded token data to the request object for use in subsequent middleware/routes
+    req.userData = user;
+    req.userId = user.userId;
+    setUserContext(user);
 
+    // Proceed to the next middleware/route
     next();
-  } catch (error) {
-    res.status(401).json({ error });
-  }
-};
+  });
+}
 
 // Middleware for Active User Check
 const activeUserAuthMiddleware = (req, res, next) => {
