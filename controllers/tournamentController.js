@@ -9,7 +9,7 @@ exports.createTournament = async (req, res) => {
         if (isExists) throw { message: "You have already registered" };
         
         let newTournament = await tournament.create({ ...req.body });
-        return sendResponse(res, 201, {message: "Registered successfully", data: newTournament});        
+        return sendResponse(res, 201,  "Registered successfully", newTournament);        
 
     }catch (error) {
       console.error("Error creating business:", error);
@@ -25,7 +25,7 @@ exports.updateTournaments = async(req, res)=>{
         if (!isExists) throw { message: "Tournament has not added yet" };
 
         let tournaments =  await tournament.updateOne({_id }, {$set : req.body}, { new: true } );
-        sendResponse(res, 200, "tournament updated successfully", tournaments);        
+        return sendResponse(res, 200, "tournament updated successfully", tournaments);        
 
     } catch (error) {
         console.error("Error updating tournaments:", error);
@@ -39,10 +39,9 @@ exports.deleteTournament = async (req, res) => {
         let _id = req.params;
         let tournaments = await tournament.findByIdAndUpdate( _id, { deleted: true }, { new: true } );
         if (!tournaments) {
-            sendResponse(res, 404, "tournaments not found");
-            return;
+            return sendResponse(res, 404, "tournaments not found");
           }
-          sendResponse(res, 200, "tournaments deleted successfully");
+          return sendResponse(res, 200, "tournaments deleted successfully");
         } catch (error) {
           console.error("Error deleting tournaments:", error);
           sendResponse(res, 500, "Failed to delete tournaments", null, [error.message]);
@@ -55,9 +54,9 @@ exports.tournamentByID = async (req, res) => {
         let _id = req.params;
         let tournaments = await tournament.findOne({ _id, deleted: false });
         if (!tournaments) {
-            sendResponse(res, 404, "tournament not found");
+          return sendResponse(res, 404, "tournament not found");
         } else {
-            sendResponse(res, 200, "tournament  fetched successfully", tournaments);
+          return sendResponse(res, 200, "tournament  fetched successfully", tournaments);
         }
     }
     catch (error) {
@@ -71,19 +70,13 @@ exports.tournamentByID = async (req, res) => {
 /* Get all tournaments*/
 exports.Alltournament = async (req, res) => {
     try {
+      
       let { offset, limit } = req.query;
-        offset = parseInt(offset);
-        limit = parseInt(limit);
-        offset = offset >= 0 ? offset : 0;
-        limit = limit >= 10 ? limit : 10;
+        offset = Math.max(parseInt(offset) || 0, 0);
+        limit = Math.max(parseInt(limit) || 10, 10);
 
-      let filters = {
-        teamSize: req.query.teamSize,
-        status: req.query.status,
-        entryFees: req.query.entryFees,
-        reward: req.query.reward,
-        location: req.query.location,
-      };
+      const { teamSize, status, entryFees, reward, location } = req.query;
+      const filters = { teamSize, status, entryFees, reward, location };
 
     if (Object.keys(filters).length > 0) {
         const matchStage = {
@@ -124,7 +117,7 @@ exports.Alltournament = async (req, res) => {
                   totalCount : [{$count : 'count'}]
               }}
           ]).exec();
-          sendResponse(res, 200, "tournament filtered successfully", filterdData);
+          return sendResponse(res, 200, "tournament filtered successfully", filterdData);
     } else {
         const findData = await tournament
         .aggregate([
@@ -156,7 +149,7 @@ exports.Alltournament = async (req, res) => {
                 totalCount : [{$count : 'count'}]
             }}
         ]).exec();
-        sendResponse(res, 200, "tournament fetched successfully", findData)
+        return sendResponse(res, 200, "tournament fetched successfully", findData)
     }
     } catch (error) {
       console.error("Error fetching tournaments:", error);
@@ -199,13 +192,13 @@ exports.participate = async (req, res) => {
       });
 
       if (!tournaments) {
-        return res.status(404).json({ message: 'Tournament not found or deleted' });
+        return sendResponse(res, 404, "Tournament not found or deleted");
       }
 
       tournaments.participants.addToSet(userId);
       const updatedTournament = await tournaments.save();
 
-      sendResponse(res, 200, "participated successfully", updatedTournament);        
+      return sendResponse(res, 200, "participated successfully", updatedTournament);        
     } catch (error) {
       console.error("Error in participating:", error);
       sendResponse(res, 500, "Failed to Participate", null, [error.message]);
@@ -224,10 +217,10 @@ exports.participate = async (req, res) => {
       );
   
       if (!tournaments) {
-        return res.status(404).json({ message: 'Tournament not found' });
+        return sendResponse(res, 404, "Tournament not found");
       }
 
-      sendResponse(res, 200, "Un participated successfully", tournaments);        
+      return sendResponse(res, 200, "Un participated successfully", tournaments);        
     } catch (error) {
         console.error("Error in un participating:", error);
         sendResponse(res, 500, "Failed to Un Participate", null, [error.message]);
@@ -235,19 +228,17 @@ exports.participate = async (req, res) => {
 };
 
 exports.getParticipates = async (req, res) => {
-    let { tournamentId } = req.params;
+    const { tournamentId } = req.params;
     let { offset, limit } = req.query;
-        offset = parseInt(offset);
-        limit = parseInt(limit);
-        offset = offset >= 0 ? offset : 0;
-        limit = limit >= 10 ? limit : 10;
+        offset = Math.max(parseInt(offset) || 0, 0);
+        limit = Math.max(parseInt(limit) || 10, 10);
 
     try {
       const tournaments = await tournament
         .findById(tournamentId).populate('participants', 'userName'); 
   
       if (!tournaments) {
-        return res.status(404).json({ message: 'Tournament not found' });
+        return sendResponse(res, 404, "Tournament not found");
       }
   
       let participants = tournaments.participants.map(user => user.userName);
@@ -255,7 +246,7 @@ exports.getParticipates = async (req, res) => {
     
       const slicedParticipants = participants.slice(offset, offset + limit);
 
-      sendResponse(res, 200, "Fetched successfully", { participants: slicedParticipants, totalCount })     
+      return sendResponse(res, 200, "Fetched successfully", { participants: slicedParticipants, totalCount })     
     } catch (error) {
         console.error("Error fetching details:", error);
         sendResponse(res, 500, "Failed to fetch participate details", null, [error.message,]);

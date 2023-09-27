@@ -14,7 +14,7 @@ exports.publishNews = async (req, res) => {
     }
 
     let newsPublish = await News.create({ userId: req.userId, category, ...newsData });
-    return sendResponse(res, 201, {message: "Created successfully", data: newsPublish});        
+    return sendResponse(res, 201, "Created successfully", newsPublish);        
     
   } catch (error) {
     console.error("Error publishing news:", error);
@@ -63,7 +63,7 @@ exports.getNewsAndUpdates = async (req, res) => {
         }}
     ]).exec(); 
     
-    sendResponse(res, 200, "Fetched news and updates", news);
+    return sendResponse(res, 200, "Fetched news and updates", news);
   } catch (error) {
     console.error("Error fetching news and updates:", error);
     sendResponse(res, 500, "Failed to fetch news and updates", null, [
@@ -79,9 +79,9 @@ exports.getNewsById = async (req, res) => {
 
     const news = await News.findOne({ _id, deleted: false });
     if (!news) {
-      sendResponse(res, 404, "News not found");
+      return sendResponse(res, 404, "News not found");
   } else {
-      sendResponse(res, 200, "News fetched successfully", news);
+      return sendResponse(res, 200, "News fetched successfully", news);
   }
   
   } catch (error) {
@@ -99,7 +99,7 @@ exports.createComment = async (req, res) => {
 
     const newsPost = await News.findById(newsId);
     if (!newsPost) {
-      return res.status(404).json({ error: 'News post not found' });
+      return sendResponse(res, 404, "News post not found");
     }
 
     const comment = {
@@ -110,7 +110,7 @@ exports.createComment = async (req, res) => {
     newsPost.comments.push(comment);
     await newsPost.save();
 
-    return sendResponse(res, 201, {message: "Added successfully", comment});        
+    return sendResponse(res, 201, "Added successfully", comment);        
   } catch (error) {
     console.error("Error adding Comments:", error);
     sendResponse(res, 400, "Failed to Comments", null, [error.message]);
@@ -124,12 +124,12 @@ exports.getComments = async (req, res) => {
 
     const newsPost = await News.findById(newsId);
     if (!newsPost) {
-      return res.status(404).json({ error: 'News post not found' });
+      return sendResponse(res, 404, 'News post not found');
     }
 
     // Extract comments from the news post
     const comments = newsPost.comments;
-    sendResponse(res, 200, "Fetched comments", comments);
+    return sendResponse(res, 200, "Fetched comments", comments);
 
   } catch (error) {
     console.error("Error fetching comments:", error);
@@ -148,22 +148,22 @@ exports.updateComment = async (req, res) => {
 
     const newsPost = await News.findById(newsId);
     if (!newsPost) {
-      return res.status(404).json({ error: 'News post not found' });
+      return sendResponse(res, 404, "News post not found");
     }
 
     const comment = newsPost.comments.id(commentId);
     if (!comment) {
-      return res.status(404).json({ error: 'Comment not found' });
+      return sendResponse(res, 404, "News post not found");
     }
 
     // Check if the user trying to update the comment is the comment's author
     if (comment.userId.toString() !== req.userId) {
-      return res.status(403).json({ error: 'You are not authorized to update this comment' });
+      return sendResponse(res, 403, "You are not authorized to update this comment");
     }
 
     comment.text = text;
     await newsPost.save();
-    sendResponse(res, 200, "Fetched comments and updated", comment);
+    return sendResponse(res, 200, "Fetched comments and updated", comment);
 
   } catch (error) {
     console.error("Error updating comments:", error);
@@ -181,12 +181,12 @@ exports.deleteComment = async (req, res) => {
 
     const newsPost = await News.findById(newsId);
     if (!newsPost) {
-      return res.status(404).json({ error: 'News post not found' });
+      return sendResponse(res, 404, "News post not found");
     }
 
     const comment = newsPost.comments.find((c) => c._id.toString() === commentId);
     if (!comment) {
-      return res.status(404).json({ error: 'Comment not found' });
+      return sendResponse(res, 404, "Comment not found");
     }
 
     // Check if the user trying to delete the comment is the comment's author
@@ -194,9 +194,9 @@ exports.deleteComment = async (req, res) => {
       newsPost.comments.splice(newsPost.comments.indexOf(comment), 1);
       await newsPost.save();
 
-      sendResponse(res, 200, "Comment Deleted Succesfully");
+      return sendResponse(res, 200, "Comment Deleted Succesfully");
     } else {
-      sendResponse(res, 403, {error: "You are not authorized to delete this comment"});
+      return sendResponse(res, 403, "You are not authorized to delete this comment");
     }
   } catch (error) {
     console.error("Error deleting comments:", error);
@@ -213,7 +213,7 @@ exports.likeNews = async (req, res) => {
   try {
     const news = await News.findById(newsId);
     if (!news) {
-      return res.status(404).json({ message: 'News not found' });
+      return sendResponse(res, 404, "News post not found");
     }
     const isLiked = news.likes.some(like => like.userId.equals(userId));
     const isDisliked = news.dislikes.some(dislike => dislike.userId.equals(userId));
@@ -227,7 +227,7 @@ exports.likeNews = async (req, res) => {
     }
 
     await news.save();
-    sendResponse(res, 200, { message: 'Post liked successfully' });
+    return sendResponse(res, 200, 'Post liked successfully' );
   } catch (error) {
     console.error("Error adding like:", error);
     sendResponse(res, 400, "Failed to like", null, [error.message]);
@@ -241,7 +241,7 @@ exports.dislikeNews = async (req, res) => {
   try {
     const news = await News.findById(newsId);
     if (!news) {
-      return res.status(404).json({ message: 'News post not found' });
+      return sendResponse(res, 404, "News post not found");
     }
     // Check if the user has already liked the post
     const isLiked = news.likes.some(like => like.userId.equals(userId));
@@ -254,7 +254,7 @@ exports.dislikeNews = async (req, res) => {
       news.dislikes.push({ userId });
     }
     await news.save();
-    sendResponse(res, 200, { message: 'Post disliked successfully' });
+    return sendResponse(res, 200, 'Post disliked successfully' );
 
   } catch (error) {
     console.error("Error adding dislike:", error);

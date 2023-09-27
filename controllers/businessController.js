@@ -1,53 +1,184 @@
 const bcrypt = require("bcrypt");
 const sendResponse = require("../utils/response");
-const business  = require("../models/business.model");
-// var aws = require("aws-sdk");
-// var multer = require("multer");
-// var multerS3 = require("multer-s3");
-
-/*AWS Connection*/
-
-// aws.config.update({
-//     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-//     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-//     region: process.env.AWS_REGION,
-//     s3BucketEndpoint: true,
-//     endpoint: process.env.AWS_BUCKET_ENDPOINT,
-// });
-
-// var s3 = new aws.S3();
-// var upload = multer({
-//     storage: multerS3({
-//         s3: s3,
-//         acl: "public-read",
-//         bucket: process.env.AWS_BUCKET_NAME,
-//         metadata: function(req, file, cb) {
-//             cb(null, { fieldName: "business_Profile_img" });
-//         },
-//         key: function(req, file, cb) {
-//             var filename =
-//                 "public/" + Date.now().toString() + "_" + file.originalname;
-//             cb(null, filename);
-//         },
-//     }),
-// });
-// var singleUpload = upload.single("business_image");
+const { business, BusinessCatalogue } = require("../models/business.model"); 
+const sendEmail = require('../services/mailer');
+const { generateVerificationToken } = require('../services/token');
+const moment = require('moment');
 
 
-
-/*Register Business Profile*/
+/* register Business*/
 exports.registerBusiness = async (req, res) => {
-    try{
-        let isExists = await business.findOne({ businessName: req.body.businessName });
-        if (isExists) throw { message: "You have already registered" };
-        
-        let newBusiness = await business.create({userId: req.userId, ...req.body});
-        return sendResponse(res, 201, {message: "Registered successfully", data: newBusiness});        
+  const { businessName, email, businessWebsite } = req.body;
+  
+  if (!businessName || !email || !businessWebsite) {
+    return sendResponse(res, 403, "businessName, email, or businessWebsite is missing")
+  }
 
-    }catch (error) {
-      console.error("Error creating business:", error);
-      sendResponse(res, 400, "Failed to register", null, [error.message]);
-    } 
+  const emailHostName = email.split('@')[1];
+  const websiteHostName = new URL(businessWebsite).hostname;
+
+  // Check if the email hostname and website hostname match
+  if (emailHostName !== websiteHostName) {
+    return sendResponse(res, 400, 'Email and website hostnames do not match.');        
+   
+  }
+
+  // Check if there is an existing unverified business with the same email
+  const existingUnverifiedBusiness = await business.findOne({ email, isVerified: false });
+  if (existingUnverifiedBusiness) {
+
+    const verificationLink = `https://esportee.com/verify/${existingUnverifiedBusiness.verificationToken}`;
+    await sendEmail(
+      email,
+      'Email Verification',
+      `Click the following link to verify your business: ${verificationLink}`
+    );
+    return sendResponse(res, 400, 'A verification link has been sent to your email. Please verify your account.', existingUnverifiedBusiness );
+  }
+
+  // Check if there is an existing business with the same website hostname
+  const existingBusiness = await business.findOne({ businessWebsite: { $regex: websiteHostName, $options: 'i' } });
+  if (existingBusiness) {
+    return sendResponse(res, 400, 'A business with the same hostname already exists.');        
+  }
+
+  const token = generateVerificationToken();
+  const tokenExpiration = moment().add(5, 'minutes');
+
+  const newBusiness = new business({
+    userId: req.userId,
+    businessName,
+    email,
+    businessWebsite,
+    verificationToken: token,
+    tokenExpiration
+  });
+
+  try {
+    await newBusiness.save();
+
+    // Send an email verification link
+    const verificationLink = `https://esportee.com/verify/${newBusiness.verificationToken}`;
+    await sendEmail(email, 'Email Verification', `Click the following link to verify your business: ${verificationLink}`);
+    
+    return sendResponse(res, 201, 'Business registered successfully. Please check your email for verification.', newBusiness );        
+  } catch (error) {
+    console.error("Error registering business:", error);
+    sendResponse(res, 400, "Failed to register", null, [error.message]);
+  } 
+};
+
+/* verify business */
+exports.verifyBusiness = async (req, res) => {
+    const { token } = req.params;
+    try {
+      const businessRecord = await business.findOne({ verificationToken: token });
+      if (!businessRecord) {
+        return sendResponse(res, 404, 'Business not found or already verified.');
+      }
+  
+      const tokenExpiration = businessRecord.tokenExpiration;
+      if (!tokenExpiration || moment().isAfter(tokenExpiration)) {
+      sendResponse(res, 400, 'Verification link has expired. Please request a new one.');
+
+      businessRecord.isVerified = false;
+      await businessRecord.save();
+      return;
+      }
+  
+      // Update business record to mark it as verified
+      businessRecord.isVerified = true;
+      await businessRecord.save();
+  
+      return sendResponse(res, 200, 'Business verified successfully.');
+  } catch (error) {
+    console.error("Error verifying business:", error);
+    sendResponse(res, 500, "Failed to verify business", null, [error.message]);
+  }
+};
+
+/*regenerate verification link */
+exports.regenerateVerificationToken = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const businessRecord = await business.findOne({ email });
+    if (!businessRecord) {
+      return sendResponse(res, 404, 'Business not found.');
+    }
+
+    if (businessRecord.isVerified) {
+      return sendResponse(res, 400, 'Business is already verified.');
+    }
+
+    // Generate a new verification token
+    const newToken = generateVerificationToken();
+    const tokenExpiration = moment().add(5, 'minutes');
+
+    businessRecord.verificationToken = newToken;
+    businessRecord.tokenExpiration = tokenExpiration;
+
+    await businessRecord.save();
+
+    // Send the new verification link with the new token
+    const verificationLink = `https://esportee.com/verify/${newToken}`;
+    await sendEmail(email, 'Email Verification', `Click the following link to verify your business: ${verificationLink}`);
+
+    return sendResponse(res, 200, 'New verification link has been sent to your email.');
+  } catch (error) {
+    console.error("Error regenerating verification token:", error);
+    sendResponse(res, 500, "Failed to regenerate verification token", null, [error.message]);
+  }
+};
+
+
+
+/*Create Business Catalogue */
+exports.createCatalogue = async (req, res) => {
+  try {
+    const businessId = req.body.businessId;
+
+    const Business = await business.findOne({ _id: businessId, isVerified: true });
+    if (!Business) {
+      return sendResponse(res, 401, 'Unauthorized: Business not registered or not verified.');
+    }
+
+    const existingCatalogue = await BusinessCatalogue.findOne({
+      businessId,
+      deleted: false
+    });
+
+    if (existingCatalogue) {
+      if (existingCatalogue.deleted) {
+
+        const newCatalogue = new BusinessCatalogue({
+          businessId,
+          businessName: Businessusiness.businessName,
+          businessWebsite: Business.businessWebsite,
+          email: Business.email,
+          ...req.body
+        });
+        await newCatalogue.save();
+
+        return sendResponse(res, 201, 'Catalogue created successfully.', newCatalogue);
+      } else {
+        return sendResponse(res, 400, 'Business has already created a Catalogue.');
+      }
+    } else {
+      const newCatalogue = new BusinessCatalogue({
+        businessId,
+        businessName: Business.businessName,
+        businessWebsite: Business.businessWebsite,
+        email: Business.email,
+        ...req.body
+      });
+      await newCatalogue.save();
+
+      return sendResponse(res, 201, 'Catalogue created successfully.', newCatalogue);
+    }
+  } catch (error) {
+    console.error('Error creating Catalogue:', error);
+    sendResponse(res, 400, 'Failed to create', null, [error.message]);
+  }
 };
 
 
@@ -123,15 +254,13 @@ exports.registerBusiness = async (req, res) => {
 
 
 /** read business profiles  */
-exports.getBusinessProfiles = async (req, res) => {
+exports.getBusinessCatalogue = async (req, res) => {
     try {
         let { offset, limit } = req.query;
-        offset = parseInt(offset);
-        limit = parseInt(limit);
-        offset = offset >= 0 ? offset : 0;
-        limit = limit >= 10 ? limit : 10;
+        offset = Math.max(parseInt(offset) || 0, 0);
+        limit = Math.max(parseInt(limit) || 10, 10);
 
-        const businesses = await business
+        const businesses = await BusinessCatalogue
         .aggregate([
             { $match: {deleted: false} },
             {
@@ -139,14 +268,18 @@ exports.getBusinessProfiles = async (req, res) => {
                     _id: 0,
                     businessName: "$businessName",
                     otherName: "$otherName",
+                    email: "$email",
+                    mobile: "$mobile",
                     businessWebsite: "$businessWebsite",
+                    description: "$description",
                     businessSize: "$businessSize",
                     businessHQLocation: "$businessHQLocation",
                     language: "$language",
                     yearFounded: "$yearFounded",
-                    businessType: "$businessType",
+                    companyType: "$businessType",
+                    otherAccounts: "$otherAccounts",
                     updatedAt: "$updatedAt",
-                    deleted: "$deleted"
+                    deleted: "$deleted",
                 },
             },
             {
@@ -159,24 +292,22 @@ exports.getBusinessProfiles = async (req, res) => {
                 totalCount : [{$count : 'count'}]
             }}
         ]).exec(); 
-        sendResponse(res, 200, "Business profiles fetched successfully", businesses);
+        return sendResponse(res, 200, "Catalogue profiles fetched successfully", businesses);
     } catch (error) {
-        console.error("Error fetching business profile: ", error);
-        sendResponse(res, 500, "Failed to fetch", null, [
-            error.message,
-        ]);
+      console.error("Error fetching Catalogue profile: ", error);
+      sendResponse(res, 500, "Failed to fetch", null, [error.message ]);
     }
 };
 
-/** read business profiles by Id */
-exports.getBusinessByID = async (req, res) => {
+/** read catalogue profiles by Id */
+exports.getCatalogueByID = async (req, res) => {
     try {
         let _id = req.params;
-        let businesses = await business.findOne({ _id, deleted: false });
+        let businesses = await BusinessCatalogue.findOne({ _id, deleted: false });
         if (!businesses) {
-            sendResponse(res, 404, "Business profile not found");
+          return sendResponse(res, 404, "Business catalogue profile not found");
         } else {
-            sendResponse(res, 200, "Business profile fetched successfully", businesses);
+          return sendResponse(res, 200, "Business catalogue profile fetched successfully", businesses);
         }
     }
     catch (error) {
@@ -188,32 +319,55 @@ exports.getBusinessByID = async (req, res) => {
 };    
 
 /** update business profiles */
-exports.updateBusiness = async(req, res)=>{
+exports.updateCatalogue = async(req, res)=>{
     try {
         let _id = req.params;
-        let isExists = await business.findOne({ _id , deleted: false});
-        if (!isExists) throw { message: "Business has not added yet" };
-        let businesses =  await business.updateOne({_id }, {$set : req.body}, { new: true } );
-        sendResponse(res, 200, "business updated successfully", businesses);        
+        let isExists = await BusinessCatalogue.findOne({ _id , deleted: false});
+        if (!isExists) throw { message: "Business catalogue has not added yet" };
 
+        const { businessName, businessWebsite, email, ...updateFields } = req.body;
+
+        if (businessName || businessWebsite || email) {
+          return sendResponse(res, 400, "Cannot update businessName, businessWebsite or email");
+        }
+
+        const businesses = await BusinessCatalogue.updateOne({ _id }, { $set: updateFields }, { new: true });
+        return sendResponse(res, 200, "business catalogue updated successfully", businesses);        
     } catch (error) {
-        console.error("Error updating business:", error);
-        sendResponse(res, 500, "Failed to update business", null, [error.message]);
-      }
+      console.error("Error updating catalogue:", error);
+      sendResponse(res, 500, "Failed to update catalogue", null, [error.message]);
+    }
 };
 
 /** delete business profiles by Id */
-exports.deleteBusiness = async (req, res) => {
+exports.deleteCatalogue = async (req, res) => {
     try {
         let _id = req.params;
-        let businesses = await business.findByIdAndUpdate( _id, { deleted: true }, { new: true } );
+        let businesses = await BusinessCatalogue.findByIdAndUpdate( _id, { deleted: true }, { new: true } );
         if (!businesses) {
-            sendResponse(res, 404, "business not found");
-            return;
+          return sendResponse(res, 404, "catalogue not found");
           }
-          sendResponse(res, 200, "business deleted successfully");
-        } catch (error) {
-          console.error("Error deleting business:", error);
-          sendResponse(res, 500, "Failed to delete business", null, [error.message]);
-        }
+          return sendResponse(res, 200, "catalogue deleted successfully");
+    } catch (error) {
+      console.error("Error deleting catalogue:", error);
+      sendResponse(res, 500, "Failed to delete catalogue", null, [error.message]);
+    }
+};
+
+/* Search business by name */
+exports.searchBusinesses = async (req, res) => {
+  const { businessName } = req.query; 
+  try {
+    const query = {deleted: { $ne: true } };
+
+    if (businessName) {
+      query.businessName = { $regex: new RegExp(`^${businessName}$`, 'i') };
+    }
+
+    const businesses = await BusinessCatalogue.find(query);
+    return sendResponse(res, 200, 'Businesses found successfully.', businesses);
+  } catch (error) {
+    console.error("Error searching and filtering businesses:", error);
+    sendResponse(res, 500, "Failed to search and filter businesses", null, [error.message]);
+  }
 };
