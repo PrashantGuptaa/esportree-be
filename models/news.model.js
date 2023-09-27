@@ -6,10 +6,31 @@ const newsSchema = new mongoose.Schema({
   title: { type: String, required: true },
   tags: [{ type: String }],
   description: { type: String, required: true },
-  image: { type: Buffer, required: true },
-  createdAt: { type: Date, default: Date.now },       // Automatically set to the current date and time when the document is created
-  lastUpdated: { type: Date, default: Date.now },    // Automatically updated whenever the document is modified
-});
+  image_url: [{type: String, default: null}],
+  category: { type: String, required: true },
+  deleted: { type: Boolean, default: false },
+  likes: [
+    {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
+  dislikes: [
+    {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
+  comments: [
+    {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+      text: { type: String },
+      createdAt: { type: Date, default: Date.now },
+    },
+  ], 
+},
+{ timestamps: true }
+);
 
 const News = mongoose.model('News', newsSchema);
 
